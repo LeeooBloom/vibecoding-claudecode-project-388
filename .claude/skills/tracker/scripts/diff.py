@@ -85,7 +85,7 @@ def compare_item(url, prev, cur):
                         + (f" (обычная {rp_new})" if is_num(rp_new) else "")})
     elif is_num(sp_old) and sp_new is None:
         changes.append({"field": "sale_price", "kind": "sale_ended", "old": sp_old, "new": None,
-                        "significant": cur_ok,
+                        "regular_price": rp_new, "significant": cur_ok,
                         "reason": f"Скидка закончилась: было {sp_old}"
                         + (f", теперь {rp_new}" if cur_ok else " — цена не получена, данных нет")})
     else:
