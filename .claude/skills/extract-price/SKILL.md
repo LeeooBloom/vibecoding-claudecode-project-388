@@ -28,9 +28,9 @@ description: Извлекает цену товара с одной страни
 Загружай **сырой HTML** через Bash, а не WebFetch: WebFetch превращает страницу в markdown и теряет JSON-LD и атрибуты `content`, в которых лежит точная цена.
 
 ```bash
-mkdir -p "$TMPDIR/extract-price" && curl -sSL --max-time 30 \
+mkdir -p "${TMPDIR:-/tmp}/extract-price" && curl -sSL --max-time 30 \
   -A 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36' \
-  -H 'Accept-Language: ru' -o "$TMPDIR/extract-price/page.html" -w '%{http_code}\n' "<URL>"
+  -H 'Accept-Language: ru' -o "${TMPDIR:-/tmp}/extract-price/page.html" -w '%{http_code}\n' "<URL>"
 ```
 
 - Код не `200` или файл пустой → цена не найдена (раздел 5).
@@ -41,7 +41,7 @@ mkdir -p "$TMPDIR/extract-price" && curl -sSL --max-time 30 \
 Запусти парсер из папки скилла, он использует только стандартную библиотеку Python:
 
 ```bash
-python3 -I .claude/skills/extract-price/scripts/parse_price.py "$TMPDIR/extract-price/page.html"
+python3 -I .claude/skills/extract-price/scripts/parse_price.py "${TMPDIR:-/tmp}/extract-price/page.html"
 ```
 
 Он печатает `{ regular_price, sale_price, has_credit, source, error }`. Поля `source` и `error` служебные: в ответ их не включай, `error` используй в разделе 5.
