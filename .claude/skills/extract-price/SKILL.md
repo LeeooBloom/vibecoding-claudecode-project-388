@@ -62,11 +62,13 @@ python3 -I .claude/skills/extract-price/scripts/parse_price.py "${TMPDIR:-/tmp}/
 | OneTwoTrip | `onetwotrip.com/ru/aviabilety/MOW_MRV/` | JSON-LD `Product → offers (AggregateOffer).lowPrice`, `priceCurrency: RUB`. В тексте — «от 3694 ₽» и календарь цен по дням. | `3694` |
 | Kupibilet | `kupibilet.ru/aviabilety/iz-moskva/v-mineralnye-vody` | JSON-LD в `@graph`: `Product → offers (AggregateOffer).lowPrice` (есть и `highPrice`), у каждого `Flight` свой `Offer.price`. **`line-through` здесь зачёркивает старое время вылета, а не цену**: это не скидка. | `3194` |
 | БилетыПлюс | `biletyplus.ru/aviabilety/moskva-mow/mineralnye-vody-mrv` | JSON-LD нет. Микроразметка `itemprop="lowPrice" content="2194"`, валюта `itemprop="priceCurrency" content="RUB"` (в тексте «р.»). Календарь цен — в JS-переменной `calendarData` (`minPrice` по датам). | `2194` |
-| Aviasales | `aviasales.ru/search/MOW2512MRV09011` | Цен в HTML **нет**: это SPA, билеты подгружаются JavaScript-ом из `tickets-api.aviasales.*` под защитой AWS WAF и reCAPTCHA. Даже в браузере без прохождения капчи цены не появляются. | цена не найдена |
+| Ozon Travel | `ozon.ru/travel/flight/moskva-mow/mineralnye-vody-mrv/` | JSON-LD `Product → offers (AggregateOffer).lowPrice` (строкой, `"3210"`). В тексте — «от 3 210 ₽» по рейсам и календарь «от N ₽» по дням. В способах оплаты есть «Ozon Рассрочка» → `has_credit: true`. | `3210` |
 
-На страницах направлений агрегаторы показывают **минимальную цену «от»**, а не одну цену билета. Её и бери как `regular_price`. Зачёркнутой цены там нет, поэтому `sale_price` = `null`. Рассрочки на этих страницах не нашлось, поэтому `has_credit` = `false`.
+На страницах направлений агрегаторы показывают **минимальную цену «от»**, а не одну цену билета. Её и бери как `regular_price`. Зачёркнутой цены там нет, поэтому `sale_price` = `null`. Рассрочка нашлась только у Ozon; на остальных сайтах `has_credit` = `false`.
 
-Формат пути поиска Aviasales: `MOW2512MRV09011` = из `MOW` 25.12 в `MRV`, обратно 09.01, `1` пассажир.
+**Ozon Travel: нужна страница направления, а не главная.** Главная `ozon.ru/travel/` — витрина отелей и промо-акций. JSON-LD с ценой там нет, а «цена» из текста (например, `600 ₽`) к авиабилетам не относится. Если пользователь дал главную, найди на ней ссылку вида `/travel/flight/<откуда>-<код>/<куда>-<код>/` или попроси ссылку на направление. Путь `/travel/flights/...` (с `s`) отдаёт 404.
+
+**Перед загрузкой убери из URL рекламные метки** (`utm_*`, `yclid`, `etext`, `ybaip`, `__rr` и т. п.): на цену они не влияют.
 
 ## 4. Нормализуй число и валюту
 
@@ -90,7 +92,7 @@ python3 -I .claude/skills/extract-price/scripts/parse_price.py "${TMPDIR:-/tmp}/
 { "regular_price": null, "sale_price": null, "has_credit": false }
 ```
 
-Для сайтов, где цена грузится только JavaScript-ом (как поиск Aviasales), предложи пользователю ссылку на статическую страницу направления того же сайта или другого агрегатора из таблицы выше.
+Для сайтов, где цена грузится только JavaScript-ом (страницы поиска с капчей), предложи пользователю ссылку на статическую страницу направления того же сайта или другого агрегатора из таблицы выше.
 
 ## Правила
 
