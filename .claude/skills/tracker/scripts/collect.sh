@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Обходит список URL и для каждого печатает одну строку JSON:
-# {"url", "regular_price", "sale_price", "has_credit", "error"}
+# Обходит список URL и печатает запись прогона: одна строка JSON на товар (JSON Lines)
+#   {"url": ..., "regular_price": ..., "sale_price": ..., "has_credit": ...}
+# stdout — только записи прогона; предупреждения «⚠️ Цена не найдена: URL — причина» идут в stderr.
 # Использование: collect.sh [файл-со-ссылками]
 # Без аргумента берёт список из SKILL.md — между маркерами <!-- urls:start --> и <!-- urls:end -->.
 set -u
@@ -31,8 +32,18 @@ list_urls "$@" | awk '!seen[$0]++' | while read -r raw; do
     [ "$attempt" = 1 ] && sleep 3
   done
   if [ "$code" != "200" ] || [ ! -s "$page" ]; then
-    python3 -I -c 'import json,sys; print(json.dumps({"url":sys.argv[1],"regular_price":None,"sale_price":None,"has_credit":False,"error":"страница не загрузилась (HTTP "+sys.argv[2]+")"},ensure_ascii=False))' "$url" "${code:-000}"
-    continue
+    result="{\"regular_price\": null, \"sale_price\": null, \"has_credit\": false, \"error\": \"страница не загрузилась (HTTP ${code:-000})\"}"
+  else
+    result=$(python3 -I "$PARSER" "$page")
   fi
-  python3 -I "$PARSER" "$page" | python3 -I -c 'import json,sys; r=json.load(sys.stdin); r.pop("source",None); print(json.dumps({"url":sys.argv[1],**r},ensure_ascii=False))' "$url"
+  printf '%s' "$result" | python3 -I -c '
+import json, sys
+r = json.load(sys.stdin)
+url = sys.argv[1]
+print(json.dumps({"url": url, "regular_price": r.get("regular_price"),
+                  "sale_price": r.get("sale_price"), "has_credit": bool(r.get("has_credit"))},
+                 ensure_ascii=False))
+if r.get("error"):
+    print("⚠️ Цена не найдена: " + url + " — " + r["error"], file=sys.stderr)
+' "$url"
 done
