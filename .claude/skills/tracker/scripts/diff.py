@@ -12,7 +12,8 @@
     "first_run": bool,
     "changes":     [...],   # все отличия по полям, по каждому товару
     "significant": [...],   # только значимые — о них уведомлять
-    "technical":   [...]    # проблемы сбора: цена не получена / снова доступна
+    "technical":   [...],   # проблемы сбора: цена не получена / снова доступна
+    "snapshot":    [...]    # только при first_run: текущие цены каждого товара
   }
 
 Правила значимости описаны в KNOWLEDGE.md рядом со скиллом. Константы ниже должны совпадать с ним.
@@ -109,7 +110,9 @@ def compare_item(url, prev, cur):
 
 def diff(prev_run, cur_run):
     if prev_run is None:
-        return {"first_run": True, "changes": [], "significant": [], "technical": []}
+        # п. 6: сравнивать не с чем — отдаём снимок текущих цен
+        return {"first_run": True, "changes": [], "significant": [], "technical": [],
+                "snapshot": [{"url": r["url"], **{f: r.get(f) for f in FIELDS}} for r in cur_run]}
 
     prev = {r["url"]: r for r in prev_run}
     cur = {r["url"]: r for r in cur_run}
