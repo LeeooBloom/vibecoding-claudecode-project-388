@@ -4,7 +4,8 @@
 Использование:
     python3 -I summary.py <diff.json> [--date YYYY-MM-DD] [--prev-date YYYY-MM-DD] [--commit-url URL]
 
-Печатает текст сообщения: одна строка на значимое изменение, затем технические
+Печатает текст сообщения: одна строка на значимое изменение (на первом
+прогоне — снимок цен, одна строка на товар), затем технические
 события (цена не получена / снова доступна). Если значимых изменений нет —
 «Значимых изменений цен нет» (трекер всё равно отправляет сообщение, чтобы было
 видно, что прогон прошёл).
@@ -70,6 +71,15 @@ def item_lines(item):
     return [f"• {d} — {field_line(ch)}" for ch in item["fields"]]
 
 
+def snapshot_line(item):
+    """• домен — обычная / со скидкой 💳; «цена не найдена», если цены нет."""
+    rp, sp = item.get("regular_price"), item.get("sale_price")
+    if rp is None and sp is None:
+        return f"• {domain(item['url'])} — цена не найдена"
+    price = " / ".join(rub(v) for v in (rp, sp) if v is not None)
+    return f"• {domain(item['url'])} — {price}" + (" 💳" if item.get("has_credit") else "")
+
+
 def tech_line(t):
     d = domain(t["url"])
     if t["kind"] == "price_missing":
@@ -82,7 +92,8 @@ def tech_line(t):
 def build(diff, date=None, prev_date=None, commit_url=None):
     lines = ["📊 Трекер цен" + (f", {date}" if date else "")]
     if diff.get("first_run"):
-        lines.append("Первый прогон — сравнивать не с чем, цены сохранены как точка отсчёта.")
+        lines = ["📸 Первый прогон — снимок цен" + (f", {date}" if date else ""), ""]
+        lines += [snapshot_line(item) for item in diff.get("snapshot", [])]
     elif diff["significant"]:
         lines.append("Значимые изменения" + (f" с прогона {prev_date}:" if prev_date else ":"))
         for item in diff["significant"]:
