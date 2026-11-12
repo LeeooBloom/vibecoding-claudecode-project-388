@@ -1,5 +1,0 @@
-# Список страниц для трекера: одна ссылка на строку, строки с # игнорируются.
-https://www.onetwotrip.com/ru/aviabilety/MOW_MRV/
-https://www.kupibilet.ru/aviabilety/iz-moskva/v-mineralnye-vody
-https://biletyplus.ru/aviabilety/moskva-mow/mineralnye-vody-mrv
-https://www.ozon.ru/travel/flight/moskva-mow/mineralnye-vody-mrv/

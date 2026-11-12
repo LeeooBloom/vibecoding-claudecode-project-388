@@ -1,15 +1,24 @@
 #!/usr/bin/env bash
 # Обходит список URL и для каждого печатает одну строку JSON:
 # {"url", "regular_price", "sale_price", "has_credit", "error"}
-# Использование: collect.sh [файл-со-ссылками]   (по умолчанию — urls.txt рядом со скиллом)
+# Использование: collect.sh [файл-со-ссылками]
+# Без аргумента берёт список из SKILL.md — между маркерами <!-- urls:start --> и <!-- urls:end -->.
 set -u
 HERE="$(cd "$(dirname "$0")" && pwd)"
-LIST="${1:-$HERE/../urls.txt}"
+SKILL_MD="$HERE/../SKILL.md"
 PARSER="$HERE/../../extract-price/scripts/parse_price.py"
 WORK="${TMPDIR:-/tmp}/tracker"; mkdir -p "$WORK"
 UA='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0 Safari/537.36'
 
-grep -vE '^\s*(#|$)' "$LIST" | while read -r raw; do
+list_urls() {
+  if [ $# -ge 1 ]; then
+    grep -vE '^\s*(#|$)' "$1"
+  else
+    sed -n '/<!-- urls:start -->/,/<!-- urls:end -->/p' "$SKILL_MD" | grep -E '^https?://'
+  fi
+}
+
+list_urls "$@" | awk '!seen[$0]++' | while read -r raw; do
   # убрать рекламные метки (utm_*, yclid, etext, ...): берём URL до '?'
   url="${raw%%\?*}"
   page="$WORK/page.html"; rm -f "$page"
