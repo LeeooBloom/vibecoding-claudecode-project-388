@@ -1,6 +1,6 @@
 ---
 name: tracker
-description: Трекер цен — обходит список URL, для каждого извлекает цену скиллом extract-price и собирает общую таблицу цен и сохраняет её в репозиторий tracker-data (файл YYYY-MM-DD.json). Применяй, когда нужно проверить цены по всем отслеживаемым ссылкам сразу («запусти трекер», «собери цены», «что с ценами»); позже сюда добавятся diff с прошлым запуском и уведомления в Telegram.
+description: Трекер цен — обходит список URL, для каждого извлекает цену скиллом extract-price и собирает общую таблицу цен, а затем через GitHub MCP коммитит её в репозиторий tracker-data как YYYY-MM-DD.json. Применяй, когда нужно проверить цены по всем отслеживаемым ссылкам сразу («запусти трекер», «собери цены», «что с ценами»); позже сюда добавятся diff с прошлым запуском и уведомления в Telegram.
 ---
 
 # Трекер цен
@@ -32,9 +32,11 @@ https://www.ozon.ru/travel/flight/moskva-mow/mineralnye-vody-mrv/
 2. **Собери цены** одной командой:
 
    ```bash
-   .claude/skills/tracker/scripts/collect.sh                 # список из этого SKILL.md
-   .claude/skills/tracker/scripts/collect.sh /путь/к/списку  # свой список
+   .claude/skills/tracker/scripts/collect.sh | tee "${TMPDIR:-/tmp}/run.jsonl"                 # список из этого SKILL.md
+   .claude/skills/tracker/scripts/collect.sh /путь/к/списку | tee "${TMPDIR:-/tmp}/run.jsonl"  # свой список
    ```
+
+   Запись сохраняется в `run.jsonl` — из неё на шаге 5 собирается файл для `tracker-data`, второй раз сайты обходить не нужно.
 
    Для каждой ссылки скрипт загружает HTML и разбирает его парсером `extract-price/scripts/parse_price.py`. В stdout он печатает **запись прогона**, в stderr — предупреждения «⚠️ Цена не найдена: URL — причина». Ссылки обходятся по очереди. Если страница не ответила `200`, скрипт пробует ещё два раза с сохранёнными cookie, с паузами 3 и 10 секунд: всего до трёх попыток. Так разовые сбои сети (HTTP 000) и антибот-редиректы не попадают в запись как `null`.
 
@@ -44,7 +46,7 @@ https://www.ozon.ru/travel/flight/moskva-mow/mineralnye-vody-mrv/
 
 4. **Выведи запись прогона** пользователю.
 
-5. **Сохрани прогон** в репозиторий `tracker-data` по правилам раздела «Хранение».
+5. **Закоммить прогон через GitHub MCP** в репозиторий `tracker-data` как `YYYY-MM-DD.json` — по шагам раздела «Хранение». Это последний шаг прогона: после него сообщи пользователю ссылку на коммит.
 
 ## Формат ответа: запись прогона
 
@@ -91,16 +93,35 @@ https://www.ozon.ru/travel/flight/moskva-mow/mineralnye-vody-mrv/
   ]
   ```
 
-  Получить его из вывода `collect.sh`:
+  Собери его из записи шага 2:
 
   ```bash
-  .claude/skills/tracker/scripts/collect.sh | python3 -I -c 'import json,sys; print(json.dumps([json.loads(l) for l in sys.stdin if l.strip()], ensure_ascii=False, indent=2))' > "${TMPDIR:-/tmp}/$(TZ=Europe/Moscow date +%F).json"
+  python3 -I -c 'import json,sys; print(json.dumps([json.loads(l) for l in open(sys.argv[1], encoding="utf-8") if l.strip()], ensure_ascii=False, indent=2))' "${TMPDIR:-/tmp}/run.jsonl"
   ```
 
-- **Как записать:** через GitHub MCP (`create_or_update_file`) в `LeeooBloom/tracker-data`, ветка `main`, путь `YYYY-MM-DD.json`, сообщение коммита `Run YYYY-MM-DD`.
-- **Повторный прогон в тот же день** заменяет файл этого дня. Для этого передай `sha` текущего файла (получи его через `get_file_contents`).
-- Перед записью проверь, что файл — валидный JSON и в каждом объекте ровно поля `url, regular_price, sale_price, has_credit`.
-- Если записать не удалось (сервер `github` не подключён, нет прав, ошибка API), **сообщи пользователю** причину и выведи JSON файла, чтобы прогон не потерялся. Не делай вид, что прогон сохранён.
+### Как закоммитить через GitHub MCP
+
+Файл записывается **только инструментами GitHub MCP** (сервер `github`). Каждая запись файла через MCP — сразу отдельный коммит в репозитории. Поэтому **не делай `git clone`, `git commit` и `git push`** и не создавай локальную копию `tracker-data`.
+
+1. **Проверь, есть ли уже файл этого дня:** `get_file_contents` с параметрами `owner: LeeooBloom`, `repo: tracker-data`, `path: YYYY-MM-DD.json`, `ref: main`.
+   - Файл есть → запомни его `sha`: прогон этого дня будет перезаписан.
+   - Ответ «не найден» → файл новый, `sha` не нужен.
+2. **Проверь содержимое:** JSON читается, это массив, и в каждом объекте ровно поля `url, regular_price, sale_price, has_credit`.
+3. **Запиши файл:** `create_or_update_file` с параметрами:
+
+   | Параметр | Значение |
+   |---|---|
+   | `owner` | `LeeooBloom` |
+   | `repo` | `tracker-data` |
+   | `branch` | `main` |
+   | `path` | `YYYY-MM-DD.json` (в корне, без папок) |
+   | `content` | JSON из предыдущего шага, как текст |
+   | `message` | `Run YYYY-MM-DD` |
+   | `sha` | только если файл уже был (шаг 1) |
+
+4. **Убедись, что коммит создан:** в ответе инструмента есть `commit.sha` / `commit.html_url`. Покажи пользователю ссылку на коммит и путь файла.
+
+Если записать не удалось (сервер `github` не подключён — проверь `/mcp`; нет прав `Contents: Read and write` на `tracker-data`; ошибка API или конфликт `sha`), **сообщи пользователю** причину и выведи JSON файла, чтобы прогон не потерялся. Не делай вид, что прогон сохранён. Не пытайся обойти ошибку через локальный `git`.
 
 ## Пока не делай
 
