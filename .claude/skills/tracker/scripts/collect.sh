@@ -24,12 +24,13 @@ list_urls "$@" | awk '!seen[$0]++' | while read -r raw; do
   url="${raw%%\?*}"
   page="$WORK/page.html"; rm -f "$page"
   # cookie-jar: антибот-редиректы (например, 307 у Ozon) ставят cookie и ждут её при повторе
-  for attempt in 1 2; do
+  # до трёх попыток: паузы 3 и 10 секунд переживают разовые сбои сети (HTTP 000) и антибот-редиректы
+  for attempt in 1 2 3; do
     code=$(curl -sSL --max-time 30 -A "$UA" -H 'Accept-Language: ru' \
            -c "$WORK/cookies.txt" -b "$WORK/cookies.txt" \
            -o "$page" -w '%{http_code}' "$url" 2>/dev/null)
     [ "$code" = "200" ] && [ -s "$page" ] && break
-    [ "$attempt" = 1 ] && sleep 3
+    case "$attempt" in 1) sleep 3 ;; 2) sleep 10 ;; esac
   done
   if [ "$code" != "200" ] || [ ! -s "$page" ]; then
     result="{\"regular_price\": null, \"sale_price\": null, \"has_credit\": false, \"error\": \"страница не загрузилась (HTTP ${code:-000})\"}"
