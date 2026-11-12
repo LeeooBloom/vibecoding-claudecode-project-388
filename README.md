@@ -13,7 +13,8 @@
 Трекер собран из двух скиллов Claude Code в `.claude/skills/` и пары скриптов на стандартной библиотеке Python:
 
 1. **`extract-price`** — по одной ссылке достаёт `{ regular_price, sale_price, has_credit }` из сырого HTML: JSON-LD, мета-теги, микроразметка, видимый текст.
-2. **`tracker`** — обходит список ссылок (`scripts/collect.sh`), сравнивает прогон с прошлым (`scripts/diff.py`), по правилам [`KNOWLEDGE.md`](.claude/skills/tracker/KNOWLEDGE.md) оставляет только значимые изменения (порог ±1 % и не меньше 10 ₽, скидка, рассрочка, новые и пропавшие товары), сохраняет прогон в репозиторий [`tracker-data`](https://github.com/LeeooBloom/tracker-data) как `YYYY-MM-DD.json` и присылает сводку в Telegram (`scripts/summary.py` → `send.py`).
+2. **`tracker`** — обходит список ссылок (`scripts/collect.sh`), сравнивает прогон с прошлым (`scripts/diff.py`), по правилам [`KNOWLEDGE.md`](.claude/skills/tracker/KNOWLEDGE.md) оставляет только значимые изменения (порог ±1 % и не меньше 10 ₽, скидка, рассрочка, новые и пропавшие товары), сохраняет прогон в репозиторий [`tracker-data`](https://github.com/LeeooBloom/tracker-data) как `YYYY-MM-DD.json` и присылает сводку в Telegram через `send.py`.
+3. **Sub-agent `tracker-summary`** (`.claude/agents/`, модель Haiku) — формулирует сводку из готового diff: основная модель занимается логикой трекера, дешёвая — только текстом. Запасной вариант без модели — `scripts/summary.py`. Сравнение качества и стоимости — в [`COST.md`](.claude/skills/tracker/COST.md).
 
 Сейчас отслеживаются авиабилеты Москва → Минеральные Воды на OneTwoTrip, Kupibilet, БилетыПлюс и Ozon Travel.
 
